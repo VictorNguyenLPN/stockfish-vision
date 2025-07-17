@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="logo.svg" width="60%" alt="StockFish-Vision" />
+  <img src="images/logo.svg" width="60%" alt="StockFish-Vision" />
 </div>
 <hr/>
 
@@ -21,6 +21,10 @@ A Python-based tool that can "look" at your chess game (via screenshot or image 
 ## Architecture & Workflow
 
 The program is built on a 3-module architecture, with each module performing a specific task.
+
+<div align="center">
+  <img src="images/flow.png" width="100%" alt="StockFish-Vision" />
+</div>
 
 ### **Module 1: Data Acquisition**
 
