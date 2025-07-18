@@ -1,4 +1,4 @@
-# ui.py
+# stockfish-vision/src/ui.py
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel
 )
