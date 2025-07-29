@@ -90,6 +90,9 @@ To ensure the computer vision model works accurately, please configure your ches
 > Other themes or styles **may cause recognition errors**.
 
 >  We're actively working to **diversify and expand the template set** to support more styles and layouts in future updates.
+
+python main.py --image ./images/board_3.png --debug --output ./fen_output.txt
+
 ---
 
 ## 6. License

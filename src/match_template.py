@@ -108,29 +108,95 @@ def __compress_fen_row(row_symbols: list) -> str:
         compressed += str(empty_count)
     return compressed
 
-def generate_fen_from_image(image_path: str):
-    logger.info(f"1. Processing image from {image_path}")
+def find_chessboard_contour(image: np.ndarray, debug=False):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,
+                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 11, 3)
+
+    contours, _ = cv2.findContours(thresh,
+                                   cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+    max_area = 0
+    best_cnt = None
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        epsilon = 0.02 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+        if debug:
+            print(f"Contour area: {area}, Approx len: {len(approx)}")
+
+        if area > max_area and len(approx) == 4:
+            max_area = area
+            best_cnt = approx
+
+    if best_cnt is None:
+        raise ValueError("No chessboard contour found.")
+
+    if debug:
+        debug_image = image.copy()
+        cv2.drawContours(debug_image, [best_cnt], -1, (0, 255, 0), 3)
+        cv2.imshow("Detected Board", debug_image)
+        cv2.waitKey(0)
+
+    return best_cnt.reshape(4, 2)
+
+def crop_and_warp_board(image, corners, size=720):
+    def order_points(pts):
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+
+        diff = np.diff(pts, axis=1)
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+
+        return rect
+
+    ordered = order_points(corners)
+    dst = np.array([
+        [0, 0],
+        [size - 1, 0],
+        [size - 1, size - 1],
+        [0, size - 1]
+    ], dtype="float32")
+
+    matrix = cv2.getPerspectiveTransform(ordered, dst)
+    warped = cv2.warpPerspective(image, matrix, (size, size))
+    return warped
+
+
+def generate_fen_from_image(image_path: str, debug: bool = False):
+    if debug:
+        logger.info(f"1. Processing image from {image_path}")
 
     bgr_image = __load_image(image_path=image_path, window_name=None)
     if bgr_image is None:
         logger.error("Image is None")
         return None
 
-    bgr_image_copy = bgr_image.copy()
-    h, w = bgr_image_copy.shape[:2]
-    cell_size = w //8
-    logger.info(f"2. Board's shape: {bgr_image_copy.shape[0]}x{bgr_image_copy.shape[1]}\n\t\t\t\tCut into 8 cell: {bgr_image_copy.shape[0]//8}x{bgr_image_copy.shape[1]//8}")
+    try:
+        board_contour = find_chessboard_contour(bgr_image, debug=debug)
+        bgr_image_board = crop_and_warp_board(bgr_image, board_contour)
+    except Exception as e:
+        logger.error(f"Can't extract chessboard: {e}")
+        return None
+
+    h, w = bgr_image_board.shape[:2]
+    cell_size = w // 8
 
     templates = __load_templates(verbose=False)
 
-    logger.info(f"3. Matching template")
     board_labels = []
     for row in range(8):
         row_labels = []
         for col in range(8):
             sx = col * cell_size
             sy = row * cell_size
-            selected_cell = bgr_image_copy[sy:sy+cell_size, sx:sx+cell_size]
+            selected_cell = bgr_image_board[sy:sy+cell_size, sx:sx+cell_size]
 
             square_type = 'light' if (row + col) % 2 == 0 else 'dark'
             label = __classify_cell(selected_cell, templates, square_type)
@@ -139,10 +205,13 @@ def generate_fen_from_image(image_path: str):
 
     fen_rows = [__compress_fen_row(row) for row in board_labels]
     fen = "/".join(fen_rows)
-    logger.info(f"4. FEN: {fen}")
 
-    print("-"*33)
+    print("-" * 33)
     for row in board_labels:
-        print("|"," | ".join(s if s else "." for s in row), "|")
-        print("-"*33)
+        print("|", " | ".join(s if s else "." for s in row), "|")
+        print("-" * 33)
+
+    if debug:
+        logger.info(f"4. FEN: {fen}")
+
     return fen

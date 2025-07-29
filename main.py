@@ -1,8 +1,39 @@
 from src.match_template import generate_fen_from_image
-
+import argparse
 
 if __name__ == "__main__":
-    fen = generate_fen_from_image("./images/board_3.png")
+    parser = argparse.ArgumentParser(description="Nhận diện bàn cờ từ ảnh và sinh FEN.")
+
+    parser.add_argument(
+        "--image", "-i",
+        type=str,
+        required=True,
+        help="Đường dẫn tới ảnh bàn cờ (ví dụ: ./images/board_3.png)"
+    )
+
+    parser.add_argument(
+        "--debug", "-d",
+        action="store_true",
+        help="Bật chế độ debug (in thêm thông tin trung gian)"
+    )
+
+    parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default=None,
+        help="Ghi FEN ra file (tuỳ chọn)"
+    )
+
+    args = parser.parse_args()
+
+    fen = generate_fen_from_image(args.image, debug=args.debug)
+
+    print("FEN:", fen)
+
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(fen)
+        print(f"Đã ghi FEN vào: {args.output}")
 
 
 """

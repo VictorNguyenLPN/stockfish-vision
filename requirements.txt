@@ -4,3 +4,4 @@ PyAutoGUI
 PyQt6
 python-chess
 mss
+colorlog
